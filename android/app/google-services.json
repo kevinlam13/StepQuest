@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "734173836292",
+    "project_id": "stepquest-bf725",
+    "storage_bucket": "stepquest-bf725.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:734173836292:android:18f31f0e17b954601df151",
+        "android_client_info": {
+          "package_name": "com.company.stepquest"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAZK7t_uUacVIbwOBd0jWfnInn9ZLSJVkM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:734173836292:android:af0a9a2467ff489f1df151",
+        "android_client_info": {
+          "package_name": "com.example.stepquest"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAZK7t_uUacVIbwOBd0jWfnInn9ZLSJVkM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
