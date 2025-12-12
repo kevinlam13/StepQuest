@@ -24,8 +24,15 @@ class StepQuestApp extends StatelessWidget {
       title: 'StepQuest',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF8F5BFF), // magical purple
+          brightness: Brightness.dark,
+        ),
+        scaffoldBackgroundColor: const Color(0xFF050816),
+        textTheme: const TextTheme(
+          bodyMedium: TextStyle(color: Colors.white),
+        ),
       ),
       home: const AuthGate(),
     );
@@ -41,6 +48,7 @@ class AuthGate extends StatelessWidget {
     return StreamBuilder<User?>(
       stream: AuthService.instance.authStateChanges(),
       builder: (context, snapshot) {
+        // Loading state
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
             body: Center(
@@ -49,11 +57,13 @@ class AuthGate extends StatelessWidget {
           );
         }
 
+        // Logged in
         if (snapshot.hasData) {
           return const HomeScreen();
-        } else {
-          return const LoginScreen();
         }
+
+        // Logged out
+        return const LoginScreen();
       },
     );
   }
