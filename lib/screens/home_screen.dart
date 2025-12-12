@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../models/player_profile.dart';
 import '../services/profile_services.dart';
 import 'character_creation_screen.dart';
+import 'encounter_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -66,9 +67,10 @@ class HomeScreen extends StatelessWidget {
               return _buildNoCharacterView(context, email);
             }
 
-            // 👉 Character exists → show RPG-style stats
             final palette =
             _palettes[profile.colorIndex % _palettes.length];
+            final stepsToNext =
+            ProfileService.instance.stepsToNextEncounter(profile);
 
             return ListView(
               padding: const EdgeInsets.all(20),
@@ -91,6 +93,7 @@ class HomeScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 24),
 
+                // Level / XP card
                 _StatCard(
                   title: 'Level',
                   value: profile.level.toString(),
@@ -100,22 +103,93 @@ class HomeScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
 
+                // Steps card
                 _StatCard(
                   title: 'Steps Today',
-                  value: '0',
-                  subtitle: 'Step tracking integration coming in Week 2',
+                  value: profile.stepsToday.toString(),
+                  subtitle:
+                  'Lifetime steps: ${profile.stepsLifetime} • 1 XP per 20 steps',
                   icon: Icons.directions_walk,
                   colors: const [Color(0xFFFFD166), Color(0xFFE29578)],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
 
+                // Demo controls row
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white70,
+                          side: const BorderSide(color: Color(0xFF4ECDC4)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        onPressed: () async {
+                          await ProfileService.instance.addSteps(500);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Added 500 demo steps'),
+                              ),
+                            );
+                          }
+                        },
+                        icon: const Icon(Icons.add),
+                        label: const Text('+500 demo steps'),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                // Encounter status
                 _StatCard(
-                  title: 'Active Quest',
-                  value: 'None',
+                  title: 'Next Encounter',
+                  value: stepsToNext == 0
+                      ? 'Ready!'
+                      : '$stepsToNext steps left',
                   subtitle:
-                  'Daily quests and encounters unlock in the next sprint.',
-                  icon: Icons.map_outlined,
+                  'Encounters completed: ${profile.encountersCompleted}',
+                  icon: Icons.cruelty_free_outlined,
                   colors: const [Color(0xFF8E9AFF), Color(0xFF5A5FEF)],
+                ),
+                const SizedBox(height: 12),
+
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton.icon(
+                    onPressed: stepsToNext == 0
+                        ? () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              EncounterScreen(profile: profile),
+                        ),
+                      );
+                    }
+                        : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF4ECDC4),
+                      foregroundColor: Colors.black,
+                      disabledBackgroundColor:
+                      Colors.white.withOpacity(0.1),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    icon: const Icon(Icons.sports_martial_arts),
+                    label: Text(
+                      stepsToNext == 0
+                          ? 'Start Encounter'
+                          : 'Walk more to unlock',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
                 ),
 
                 const SizedBox(height: 32),
@@ -129,9 +203,9 @@ class HomeScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  '• Track your daily steps and convert them into XP.\n'
-                      '• Unlock quests and regions as your step count increases.\n'
-                      '• Team up with friends in future guild & coop updates.',
+                  '• Integrate Google Fit / Apple Health instead of demo steps.\n'
+                      '• Log encounters in a Firestore subcollection.\n'
+                      '• Add loot rewards, items, and quest hooks.',
                   style: TextStyle(
                     fontSize: 14,
                     color: Color(0xFF9093A6),
