@@ -1,88 +1,60 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class PlayerProfile {
-  final String id; // same as Firebase Auth uid
-  final String displayName;
-  final String heroClass;
+  final String uid;
+  final String email;
   final int level;
   final int xp;
-  final int stepsLifetime;
-  final int stepsToday;
-  final int encountersCompleted;
-  final int colorIndex; // used for card color theme
+  final int weeklySteps;
+  final String guild;
+
+  // Avatar selections
+  final int bodyColor;     // ARGB int
+  final int eyeStyle;      // 0–3
+  final int hairStyle;     // 0–3
+  final int hatStyle;      // cosmetic reward
 
   PlayerProfile({
-    required this.id,
-    required this.displayName,
-    required this.heroClass,
+    required this.uid,
+    required this.email,
     required this.level,
     required this.xp,
-    required this.stepsLifetime,
-    required this.stepsToday,
-    required this.encountersCompleted,
-    required this.colorIndex,
+    required this.weeklySteps,
+    required this.guild,
+    required this.bodyColor,
+    required this.eyeStyle,
+    required this.hairStyle,
+    required this.hatStyle,
   });
 
-  factory PlayerProfile.initial(String uid) {
+  factory PlayerProfile.fromDoc(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
     return PlayerProfile(
-      id: uid,
-      displayName: 'New Adventurer',
-      heroClass: 'Walker',
-      level: 1,
-      xp: 0,
-      stepsLifetime: 0,
-      stepsToday: 0,
-      encountersCompleted: 0,
-      colorIndex: 0,
+      uid: data['uid'],
+      email: data['email'],
+      level: data['level'] ?? 1,
+      xp: data['xp'] ?? 0,
+      weeklySteps: data['weeklySteps'] ?? 0,
+      guild: data['guild'] ?? "None",
+      bodyColor: data['bodyColor'] ?? 0xFFf0d9b5,
+      eyeStyle: data['eyeStyle'] ?? 0,
+      hairStyle: data['hairStyle'] ?? 0,
+      hatStyle: data['hatStyle'] ?? -1,
     );
   }
 
-  factory PlayerProfile.fromJson(Map<String, dynamic> json, String id) {
-    return PlayerProfile(
-      id: id,
-      displayName: json['displayName'] as String? ?? 'Adventurer',
-      heroClass: json['heroClass'] as String? ?? 'Walker',
-      level: (json['level'] as num?)?.toInt() ?? 1,
-      xp: (json['xp'] as num?)?.toInt() ?? 0,
-      stepsLifetime: (json['stepsLifetime'] as num?)?.toInt() ?? 0,
-      stepsToday: (json['stepsToday'] as num?)?.toInt() ?? 0,
-      encountersCompleted:
-      (json['encountersCompleted'] as num?)?.toInt() ?? 0,
-      colorIndex: (json['colorIndex'] as num?)?.toInt() ?? 0,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
+  Map<String, dynamic> toMap() {
     return {
-      'displayName': displayName,
-      'heroClass': heroClass,
-      'level': level,
-      'xp': xp,
-      'stepsLifetime': stepsLifetime,
-      'stepsToday': stepsToday,
-      'encountersCompleted': encountersCompleted,
-      'colorIndex': colorIndex,
+      "uid": uid,
+      "email": email,
+      "level": level,
+      "xp": xp,
+      "weeklySteps": weeklySteps,
+      "guild": guild,
+      "bodyColor": bodyColor,
+      "eyeStyle": eyeStyle,
+      "hairStyle": hairStyle,
+      "hatStyle": hatStyle,
     };
-  }
-
-  PlayerProfile copyWith({
-    String? displayName,
-    String? heroClass,
-    int? level,
-    int? xp,
-    int? stepsLifetime,
-    int? stepsToday,
-    int? encountersCompleted,
-    int? colorIndex,
-  }) {
-    return PlayerProfile(
-      id: id,
-      displayName: displayName ?? this.displayName,
-      heroClass: heroClass ?? this.heroClass,
-      level: level ?? this.level,
-      xp: xp ?? this.xp,
-      stepsLifetime: stepsLifetime ?? this.stepsLifetime,
-      stepsToday: stepsToday ?? this.stepsToday,
-      encountersCompleted: encountersCompleted ?? this.encountersCompleted,
-      colorIndex: colorIndex ?? this.colorIndex,
-    );
   }
 }
