@@ -1,49 +1,63 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../models/guild_model.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class GuildService {
-  static final GuildService instance = GuildService._();
   GuildService._();
+  static final GuildService instance = GuildService._();
 
-  final _guilds = FirebaseFirestore.instance.collection("guilds");
+  final _db = FirebaseFirestore.instance;
 
-  Future<void> initializeGuilds() async {
-    final defaults = ["GLACIER", "THUNDERSTORM", "EMBER"];
+  /// Create a new guild
+  Future<void> createGuild({
+    required String guildId,
+    required String displayName,
+    required dynamic color,
+  }) async {
+    final ref = _db.collection("guilds").doc(guildId);
 
-    for (final g in defaults) {
-      final doc = await _guilds.doc(g).get();
-      if (!doc.exists) {
-        await _guilds.doc(g).set({
-          "name": g,
-          "weeklySteps": 0,
-          "members": [],
-        });
-      }
+    final exists = await ref.get();
+    if (exists.exists) {
+      throw Exception("Guild name already taken.");
     }
+
+    await ref.set({
+      "name": displayName,
+      "color": color.toString(),
+      "weeklySteps": 0,
+      "members": [],
+      "createdAt": FieldValue.serverTimestamp(),
+    });
   }
 
-  Future<void> joinGuild(String guild, String uid) async {
-    await _guilds.doc(guild).update({
+  /// Add user to guild
+  Future<void> joinGuild(String guildId) async {
+    final uid = FirebaseAuth.instance.currentUser!.uid;
+
+    await _db.collection("guilds").doc(guildId).update({
       "members": FieldValue.arrayUnion([uid]),
     });
   }
 
-  Future<List<GuildModel>> getLeaderboard() async {
-    final snap =
-    await _guilds.orderBy("weeklySteps", descending: true).get();
-
-    return snap.docs
-        .map((e) => GuildModel.fromMap(e.data()))
-        .toList();
+  /// Update guild steps (called when user gains steps)
+  Future<void> addGuildSteps(String guildId, int amount) async {
+    await _db.collection("guilds").doc(guildId).update({
+      "weeklySteps": FieldValue.increment(amount),
+    });
   }
 
-  Future<void> resetWeeklySteps() async {
-    final snap = await _guilds.get();
+  /// Leaderboard ranking
+  Future<List<Map<String, dynamic>>> getGuildLeaderboard() async {
+    final snapshot = await _db
+        .collection("guilds")
+        .orderBy("weeklySteps", descending: true)
+        .get();
 
-    for (final guild in snap.docs) {
-      await _guilds.doc(guild.id).update({
-        "weeklySteps": 0,
-      });
-    }
+    return snapshot.docs.map((d) {
+      return {
+        "id": d.id,
+        "name": d["name"],
+        "steps": d["weeklySteps"],
+      };
+    }).toList();
   }
 }

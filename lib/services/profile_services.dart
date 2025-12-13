@@ -1,78 +1,140 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/player_profile.dart';
+import 'guild_service.dart';
 
 class ProfileService {
-  static final ProfileService instance = ProfileService._();
   ProfileService._();
+  static final ProfileService instance = ProfileService._();
 
-  final _users = FirebaseFirestore.instance.collection("users");
+  final _db = FirebaseFirestore.instance;
 
-  Future<PlayerProfile?> getProfile() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return null;
+  /// Fetch user profile
+  Future<PlayerProfile?> getProfile(String uid) async {
+    final ref = _db.collection("users").doc(uid);
+    final doc = await ref.get();
 
-    final doc = await _users.doc(uid).get();
     if (!doc.exists) return null;
-
-    return PlayerProfile.fromDoc(doc);
+    return PlayerProfile.fromDoc(uid, doc);
   }
 
-  Future<void> createProfile({
-    required String uid,
-    required String email,
-    required int bodyColor,
-    required int eyeStyle,
-    required int hairStyle,
-    required String guild,
+  /// 🔥 Create character (name, class, color)
+  Future<void> createCharacter({
+    required String displayName,
+    required String heroClass,
+    required int colorIndex,
   }) async {
-    await _users.doc(uid).set({
-      "uid": uid,
-      "email": email,
+    final uid = FirebaseAuth.instance.currentUser!.uid;
+
+    await _db.collection("users").doc(uid).set({
+      "displayName": displayName,
+      "heroClass": heroClass,
+      "colorIndex": colorIndex,
+      "guildId": null,
+
+      // Starting stats
       "level": 1,
       "xp": 0,
-      "weeklySteps": 0,
-      "guild": guild,
-      "bodyColor": bodyColor,
-      "eyeStyle": eyeStyle,
-      "hairStyle": hairStyle,
-      "hatStyle": -1, // no cosmetic yet
-    });
+      "xpNeededForNextLevel": 100,
+
+      "todaySteps": 0,
+      "totalSteps": 0,
+      "stepsUntilNextEncounter": 1000,
+
+      "dailyQuestGoal": 2500,
+      "dailyQuestProgress": 0,
+      "dailyQuestCompleted": false,
+    }, SetOptions(merge: true));
   }
 
-  Future<void> addSteps(int steps) async {
+  /// 🔥 Assign a guild to the user
+  Future<void> assignGuild(String guildId) async {
     final uid = FirebaseAuth.instance.currentUser!.uid;
-    final doc = await _users.doc(uid).get();
-    final profile = PlayerProfile.fromDoc(doc);
 
-    final int newXp = profile.xp + steps;
-    final int xpNeeded = 500;
+    await _db.collection("users").doc(uid).update({
+      "guildId": guildId,
+    });
 
+    // Add user to guild member list
+    await GuildService.instance.joinGuild(guildId);
+  }
+
+  /// 🔥 Add steps + XP + level progression
+  Future<PlayerProfile> addFakeSteps({required int amount}) async {
+    final uid = FirebaseAuth.instance.currentUser!.uid;
+    final ref = _db.collection("users").doc(uid);
+
+    final doc = await ref.get();
+    final profile = PlayerProfile.fromDoc(uid, doc);
+
+    int today = profile.todaySteps + amount;
+    int total = profile.totalSteps + amount;
+    int encounterSteps = profile.stepsUntilNextEncounter - amount;
+
+    int xp = profile.xp + (amount ~/ 10); // 1 XP per 10 steps
     int level = profile.level;
-    int xp = newXp;
+    int needed = profile.xpNeededForNextLevel;
 
-    while (xp >= xpNeeded) {
-      xp -= xpNeeded;
-      level++;
+    // RPG exponential leveling
+    while (xp >= needed) {
+      xp -= needed;
+      level += 1;
+      needed = (100 * (level * 1.5)).toInt();
     }
 
-    await _users.doc(uid).update({
+    int dqProgress = profile.dailyQuestProgress + amount;
+    bool dqCompleted = dqProgress >= profile.dailyQuestGoal;
+
+    if (encounterSteps < 0) encounterSteps = 0;
+
+    await ref.update({
+      "todaySteps": today,
+      "totalSteps": total,
+      "stepsUntilNextEncounter": encounterSteps,
+
       "xp": xp,
       "level": level,
-      "weeklySteps": profile.weeklySteps + steps,
+      "xpNeededForNextLevel": needed,
+
+      "dailyQuestProgress": dqProgress,
+      "dailyQuestCompleted": dqCompleted,
     });
 
-    // Update guild weekly steps
-    await FirebaseFirestore.instance
-        .collection("guilds")
-        .doc(profile.guild)
-        .update({
-      "weeklySteps": FieldValue.increment(steps),
-    });
+    // Guild XP contribution
+    if (profile.guildId != null) {
+      await GuildService.instance.addGuildSteps(profile.guildId!, amount);
+    }
+
+    final updated = await ref.get();
+    return PlayerProfile.fromDoc(uid, updated);
   }
 
-  Future<void> equipHat(int index) async {
+  /// 🔥 Encounter reward
+  Future<PlayerProfile> completeEncounter() async {
     final uid = FirebaseAuth.instance.currentUser!.uid;
-    await _users.doc(uid).update({"hatStyle": index});
+    final ref = _db.collection("users").doc(uid);
+
+    final doc = await ref.get();
+    final profile = PlayerProfile.fromDoc(uid, doc);
+
+    int xp = profile.xp + 120;
+    int level = profile.level;
+    int needed = profile.xpNeededForNextLevel;
+
+    while (xp >= needed) {
+      xp -= needed;
+      level += 1;
+      needed = (100 * (level * 1.5)).toInt();
+    }
+
+    await ref.update({
+      "xp": xp,
+      "level": level,
+      "xpNeededForNextLevel": needed,
+      "stepsUntilNextEncounter": 1000,
+    });
+
+    final updated = await ref.get();
+    return PlayerProfile.fromDoc(uid, updated);
   }
 }

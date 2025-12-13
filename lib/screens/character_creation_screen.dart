@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-
 import '../services/profile_services.dart';
+import 'guild_selection_screen.dart';
 
 class CharacterCreationScreen extends StatefulWidget {
   const CharacterCreationScreen({super.key});
@@ -55,13 +55,18 @@ class _CharacterCreationScreenState extends State<CharacterCreationScreen> {
         heroClass: _selectedClass,
         colorIndex: _selectedColorIndex,
       );
-      if (mounted) Navigator.of(context).pop(); // back to Home
+
+      // 👉 Move to guild selection screen immediately
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const GuildSelectionScreen()),
+        );
+      }
     } catch (e) {
       setState(() => _error = e.toString());
     } finally {
-      if (mounted) {
-        setState(() => _isSaving = false);
-      }
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -86,16 +91,7 @@ class _CharacterCreationScreenState extends State<CharacterCreationScreen> {
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32),
             child: Column(
-              mainAxisSize: MainAxisSize.min,
               children: [
-                Align(
-                  alignment: Alignment.topLeft,
-                  child: IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.white70),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ),
-                const SizedBox(height: 8),
                 const Text(
                   'Forge Your Adventurer',
                   style: TextStyle(
@@ -112,25 +108,21 @@ class _CharacterCreationScreenState extends State<CharacterCreationScreen> {
                   ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 const Text(
-                  'Choose a name, class, and aura color for your StepQuest hero.',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Color(0xFFB0B3C7),
-                  ),
+                  'Choose a name, class, and aura color.\nYour hero awaits.',
+                  style: TextStyle(fontSize: 14, color: Color(0xFFB0B3C7)),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 24),
 
+                // Card Container
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.06),
                     borderRadius: BorderRadius.circular(24),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.12),
-                    ),
+                    border: Border.all(color: Colors.white.withOpacity(0.12)),
                     boxShadow: const [
                       BoxShadow(
                         color: Colors.black54,
@@ -142,12 +134,10 @@ class _CharacterCreationScreenState extends State<CharacterCreationScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Name Input
                       const Text(
                         'Character Name',
-                        style: TextStyle(
-                          color: Color(0xFFB0B3C7),
-                          fontSize: 14,
-                        ),
+                        style: TextStyle(color: Color(0xFFB0B3C7), fontSize: 14),
                       ),
                       const SizedBox(height: 8),
                       TextField(
@@ -159,13 +149,15 @@ class _CharacterCreationScreenState extends State<CharacterCreationScreen> {
                           const TextStyle(color: Color(0xFF6C718E)),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
-                            borderSide: const BorderSide(
-                                color: Color(0xFF3E3A6D)),
+                            borderSide:
+                            const BorderSide(color: Color(0xFF3E3A6D)),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
                             borderSide: const BorderSide(
-                                color: Color(0xFFFFD166), width: 2),
+                              color: Color(0xFFFFD166),
+                              width: 2,
+                            ),
                           ),
                           filled: true,
                           fillColor: Colors.white.withOpacity(0.04),
@@ -173,12 +165,10 @@ class _CharacterCreationScreenState extends State<CharacterCreationScreen> {
                       ),
                       const SizedBox(height: 16),
 
+                      // Class Dropdown
                       const Text(
                         'Hero Class',
-                        style: TextStyle(
-                          color: Color(0xFFB0B3C7),
-                          fontSize: 14,
-                        ),
+                        style: TextStyle(color: Color(0xFFB0B3C7), fontSize: 14),
                       ),
                       const SizedBox(height: 8),
                       Container(
@@ -193,32 +183,27 @@ class _CharacterCreationScreenState extends State<CharacterCreationScreen> {
                             value: _selectedClass,
                             dropdownColor: const Color(0xFF211E3A),
                             items: _classes
-                                .map(
-                                  (cls) => DropdownMenuItem<String>(
-                                value: cls,
-                                child: Text(
-                                  cls,
+                                .map((cls) => DropdownMenuItem<String>(
+                              value: cls,
+                              child: Text(cls,
                                   style:
-                                  const TextStyle(color: Colors.white),
-                                ),
-                              ),
-                            )
+                                  const TextStyle(color: Colors.white)),
+                            ))
                                 .toList(),
                             onChanged: (value) {
-                              if (value == null) return;
-                              setState(() => _selectedClass = value);
+                              if (value != null) {
+                                setState(() => _selectedClass = value);
+                              }
                             },
                           ),
                         ),
                       ),
                       const SizedBox(height: 16),
 
+                      // Color Selector
                       const Text(
                         'Aura Color',
-                        style: TextStyle(
-                          color: Color(0xFFB0B3C7),
-                          fontSize: 14,
-                        ),
+                        style: TextStyle(color: Color(0xFFB0B3C7), fontSize: 14),
                       ),
                       const SizedBox(height: 8),
                       Wrap(
@@ -226,9 +211,11 @@ class _CharacterCreationScreenState extends State<CharacterCreationScreen> {
                         children: List.generate(_colorPalettes.length, (index) {
                           final palette = _colorPalettes[index];
                           final isSelected = _selectedColorIndex == index;
+
                           return GestureDetector(
-                            onTap: () =>
-                                setState(() => _selectedColorIndex = index),
+                            onTap: () => setState(() {
+                              _selectedColorIndex = index;
+                            }),
                             child: Container(
                               width: 42,
                               height: 42,
@@ -239,38 +226,36 @@ class _CharacterCreationScreenState extends State<CharacterCreationScreen> {
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                 ),
-                                boxShadow: [
-                                  if (isSelected)
-                                    const BoxShadow(
-                                      color: Colors.black54,
-                                      blurRadius: 12,
-                                      offset: Offset(0, 6),
-                                    ),
-                                ],
                                 border: Border.all(
                                   color: isSelected
                                       ? Colors.white
                                       : Colors.transparent,
                                   width: 2,
                                 ),
+                                boxShadow: [
+                                  if (isSelected)
+                                    BoxShadow(
+                                      color: palette.first.withOpacity(0.4),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                ],
                               ),
                             ),
                           );
                         }),
                       ),
 
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
+
                       if (_error != null)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 8.0),
-                          child: Text(
-                            _error!,
-                            style: const TextStyle(
-                              color: Colors.redAccent,
-                              fontSize: 13,
-                            ),
-                          ),
+                        Text(
+                          _error!,
+                          style: const TextStyle(
+                              color: Colors.redAccent, fontSize: 13),
                         ),
+
+                      const SizedBox(height: 10),
 
                       SizedBox(
                         width: double.infinity,
@@ -281,25 +266,15 @@ class _CharacterCreationScreenState extends State<CharacterCreationScreen> {
                             backgroundColor: colors[0],
                             foregroundColor: Colors.black,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
+                                borderRadius: BorderRadius.circular(16)),
                           ),
                           child: _isSaving
-                              ? const SizedBox(
-                            height: 18,
-                            width: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor:
-                              AlwaysStoppedAnimation(Colors.black),
-                            ),
-                          )
+                              ? const CircularProgressIndicator(
+                              color: Colors.black, strokeWidth: 2)
                               : const Text(
                             'Begin the Quest',
                             style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
+                                fontWeight: FontWeight.bold, fontSize: 16),
                           ),
                         ),
                       ),
