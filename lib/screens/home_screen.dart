@@ -5,7 +5,9 @@ import '../models/player_profile.dart';
 import '../services/profile_services.dart';
 import '../widgets/avatar_renderer.dart';
 
+import 'encounter_screen.dart';
 import 'cosmetic_reward_screen.dart';
+import 'guild_leaderboard_screen.dart'; // ⭐ NEW IMPORT
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -40,8 +42,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _doEncounter() async {
-    final updated = await ProfileService.instance.completeEncounter();
-    setState(() => profile = updated);
+    if (profile == null) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => EncounterScreen(profile: profile!),
+      ),
+    ).then((_) => _loadProfile());
   }
 
   Future<void> _claimDaily() async {
@@ -49,7 +57,7 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => profile = updated);
   }
 
-  /// ⭐ NEW: A reward is available if user leveled up AND has pendingReward = true
+  /// Cosmetic reward availability
   bool get rewardAvailable {
     if (profile == null) return false;
     return profile!.pendingReward;
@@ -113,10 +121,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
             Text(
               p.displayName ?? "Unnamed Hero",
-              style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+              ),
             ),
 
             const SizedBox(height: 6),
+
             Text(
               "Guild: ${p.guildId ?? "None"}",
               style: const TextStyle(color: Colors.white70),
@@ -124,8 +137,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
             const SizedBox(height: 20),
 
-            Text("Level ${p.level}", style: const TextStyle(color: Colors.white, fontSize: 18)),
+            Text(
+              "Level ${p.level}",
+              style: const TextStyle(color: Colors.white, fontSize: 18),
+            ),
             const SizedBox(height: 8),
+
             _xpBar(current: p.xp, max: p.xpNeededForNextLevel),
 
             const SizedBox(height: 20),
@@ -149,23 +166,38 @@ class _HomeScreenState extends State<HomeScreen> {
                       BoxShadow(
                         color: Colors.purpleAccent.withOpacity(0.5),
                         blurRadius: 20,
-                      )
+                      ),
                     ],
                   ),
                   child: const Center(
                     child: Text(
                       "⭐ Cosmetic Reward Available! ⭐",
-                      style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),
               ),
 
-            _bigButton(label: "+500 Steps", color: Colors.greenAccent, onTap: _addSteps),
+            // ---------------- STEP BUTTON ----------------
+            _bigButton(
+              label: "+500 Steps",
+              color: Colors.blueAccent,
+              onTap: _addSteps,
+            ),
+
             const SizedBox(height: 14),
 
+            // ---------------- ENCOUNTER BUTTON ----------------
             if (p.stepsUntilNextEncounter <= 0)
-              _bigButton(label: "Encounter!", color: Colors.orangeAccent, onTap: _doEncounter)
+              _bigButton(
+                label: "Encounter!",
+                color: Colors.purpleAccent,
+                onTap: _doEncounter,
+              )
             else
               Text(
                 "${p.stepsUntilNextEncounter} steps until next encounter",
@@ -174,6 +206,23 @@ class _HomeScreenState extends State<HomeScreen> {
 
             const SizedBox(height: 14),
 
+            // ---------------- ⭐ GUILD LEADERBOARD BUTTON (NEW) ----------------
+            _bigButton(
+              label: "Guild Leaderboard",
+              color: Colors.tealAccent,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const GuildLeaderboardScreen(),
+                  ),
+                );
+              },
+            ),
+
+            const SizedBox(height: 14),
+
+            // ---------------- DAILY QUEST ----------------
             _dailyQuestSection(p),
           ],
         ),
@@ -184,28 +233,43 @@ class _HomeScreenState extends State<HomeScreen> {
   // ---------------- XP BAR ----------------
   Widget _xpBar({required int current, required int max}) {
     final pct = current / max;
-    return Container(
-      height: 16,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.white12,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: FractionallySizedBox(
-        alignment: Alignment.centerLeft,
-        widthFactor: pct.clamp(0, 1),
-        child: Container(
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          height: 16,
+          width: double.infinity,
           decoration: BoxDecoration(
-            color: Colors.blueAccent,
+            color: Colors.white12,
             borderRadius: BorderRadius.circular(12),
           ),
+          child: FractionallySizedBox(
+            alignment: Alignment.centerLeft,
+            widthFactor: pct.clamp(0, 1),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.blueAccent,
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
         ),
-      ),
+        const SizedBox(height: 6),
+        Text(
+          "$current / $max XP",
+          style: const TextStyle(color: Colors.white70, fontSize: 14),
+        ),
+      ],
     );
   }
 
   // ---------------- BIG BUTTON ----------------
-  Widget _bigButton({required String label, required Color color, required VoidCallback onTap}) {
+  Widget _bigButton({
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -216,7 +280,10 @@ class _HomeScreenState extends State<HomeScreen> {
           borderRadius: BorderRadius.circular(16),
         ),
         child: Center(
-          child: Text(label, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
         ),
       ),
     );

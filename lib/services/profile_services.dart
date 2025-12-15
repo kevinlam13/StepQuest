@@ -157,16 +157,24 @@ class ProfileService {
     final uid = FirebaseAuth.instance.currentUser!.uid;
     final ref = _db.collection("users").doc(uid);
 
+    final doc = await ref.get();
+    final data = doc.data() ?? {};
+
+    // Prevent claiming twice
+    if (data["dailyRewardClaimed"] == true) {
+      return PlayerProfile.fromDoc(uid, doc);
+    }
+
     await ref.update({
       "xp": FieldValue.increment(200),
       "dailyQuestCompleted": false,
       "dailyQuestProgress": 0,
+      "dailyRewardClaimed": true,     // ⭐ mark reward as claimed
     });
 
     final updated = await ref.get();
     return PlayerProfile.fromDoc(uid, updated);
   }
-
   // -------------------------------------------------
   // Save Cosmetic Selection
   // -------------------------------------------------
@@ -189,4 +197,11 @@ class ProfileService {
 
     await _db.collection("users").doc(uid).update(data);
   }
+}
+Future<void> assignGuild(String guildId) async {
+  final uid = FirebaseAuth.instance.currentUser!.uid;
+
+  await FirebaseFirestore.instance.collection("users").doc(uid).update({
+    "guildId": guildId,
+  });
 }
