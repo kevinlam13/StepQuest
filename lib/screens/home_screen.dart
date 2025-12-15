@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+
 import '../models/player_profile.dart';
 import '../services/profile_services.dart';
-import 'encounter_screen.dart';
-import 'login_screen.dart';
+import '../widgets/avatar_renderer.dart';
+
+import 'cosmetic_reward_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -12,251 +14,233 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen>
-    with SingleTickerProviderStateMixin {
+class _HomeScreenState extends State<HomeScreen> {
   PlayerProfile? profile;
   bool loading = true;
-
-  late AnimationController _shakeController;
-  String? levelUpMessage;
 
   @override
   void initState() {
     super.initState();
-    _shakeController = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 120));
     _loadProfile();
   }
 
   Future<void> _loadProfile() async {
     final uid = FirebaseAuth.instance.currentUser!.uid;
-    final data = await ProfileService.instance.getProfile(uid);
+    final p = await ProfileService.instance.getProfile(uid);
 
     setState(() {
-      profile = data;
+      profile = p;
       loading = false;
     });
   }
 
-  void _showLevelUpPopup(int gained, int newLevel) {
-    if (gained <= 0) return;
-
-    setState(() {
-      levelUpMessage = "✨ LEVEL UP! You reached Level $newLevel!";
-    });
-
-    _shakeController.forward(from: 0);
-
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) setState(() => levelUpMessage = null);
-    });
+  Future<void> _addSteps() async {
+    final updated = await ProfileService.instance.addSteps(amount: 500);
+    setState(() => profile = updated);
   }
 
-  Future<void> _addFakeSteps() async {
+  Future<void> _doEncounter() async {
+    final updated = await ProfileService.instance.completeEncounter();
+    setState(() => profile = updated);
+  }
+
+  Future<void> _claimDaily() async {
+    final updated = await ProfileService.instance.claimDailyReward();
+    setState(() => profile = updated);
+  }
+
+  /// ⭐ NEW: A reward is available if user leveled up AND has pendingReward = true
+  bool get rewardAvailable {
+    if (profile == null) return false;
+    return profile!.pendingReward;
+  }
+
+  void _openReward() {
     if (profile == null) return;
-
-    setState(() => loading = true);
-    final beforeLevel = profile!.level;
-
-    final updated = await ProfileService.instance.addFakeSteps(amount: 500);
-
-    final gained = updated.level - beforeLevel;
-
-    setState(() {
-      profile = updated;
-      loading = false;
-    });
-
-    _showLevelUpPopup(gained, updated.level);
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CosmeticRewardScreen(profile: profile!),
+      ),
+    ).then((_) => _loadProfile());
   }
 
-  double _xpPercent() {
-    if (profile == null) return 0;
-    return (profile!.xp / profile!.xpNeededForNextLevel).clamp(0, 1);
+  Future<void> _logout() async {
+    await FirebaseAuth.instance.signOut();
   }
 
   @override
   Widget build(BuildContext context) {
     if (loading || profile == null) {
       return const Scaffold(
-        backgroundColor: Color(0xFF050814),
-        body: Center(child: CircularProgressIndicator()),
+        backgroundColor: Color(0xFF0A0C1A),
+        body: Center(child: CircularProgressIndicator(color: Colors.white)),
       );
     }
 
     final p = profile!;
 
-    // Encounter unlock logic
-    bool encounterAvailable = p.stepsUntilNextEncounter <= 0;
-
     return Scaffold(
-      backgroundColor: const Color(0xFF050814),
+      backgroundColor: const Color(0xFF0A0C1A),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0D0F1F),
-        title: const Text("StepQuest"),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: "Logout",
-            onPressed: () async {
-              await FirebaseAuth.instance.signOut();
-
-              if (context.mounted) {
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (_) => const LoginScreen()),
-                      (_) => false,
-                );
-              }
-            },
-          ),
+            onPressed: _logout,
+            icon: const Icon(Icons.logout, color: Colors.white70),
+          )
         ],
       ),
-      body: Stack(
-        children: [
-          ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              /// XP + Level
-              Text("Level ${p.level}",
-                  style: const TextStyle(fontSize: 20, color: Colors.white)),
-              const SizedBox(height: 8),
-              LinearProgressIndicator(
-                value: _xpPercent(),
-                color: Colors.blueAccent,
-                backgroundColor: Colors.white12,
-                minHeight: 12,
-              ),
-              Text("${p.xp} / ${p.xpNeededForNextLevel} XP",
-                  style: const TextStyle(color: Colors.white70)),
-              const SizedBox(height: 25),
-
-              /// STEPS
-              Text("Today's Steps: ${p.todaySteps}",
-                  style: const TextStyle(color: Colors.white)),
-              Text("Total Steps: ${p.totalSteps}",
-                  style: const TextStyle(color: Colors.white54)),
-              const SizedBox(height: 12),
-
-              ElevatedButton(
-                onPressed: _addFakeSteps,
-                style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.black45,
-                    minimumSize: const Size(double.infinity, 48)),
-                child: const Text("Add 500 Demo Steps"),
-              ),
-
-              const SizedBox(height: 25),
-
-              /// DAILY QUEST
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1A1D38),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text("Daily Quest",
-                        style: TextStyle(color: Colors.white, fontSize: 18)),
-                    const SizedBox(height: 6),
-
-                    Text(
-                      p.dailyQuestCompleted
-                          ? "✔ Quest Complete! +100 XP"
-                          : "Walk ${p.dailyQuestGoal} steps",
-                      style: const TextStyle(color: Colors.white70),
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    LinearProgressIndicator(
-                      value:
-                      (p.dailyQuestProgress / p.dailyQuestGoal).clamp(0, 1),
-                      color: Colors.greenAccent,
-                      backgroundColor: Colors.white12,
-                      minHeight: 10,
-                    ),
-                    const SizedBox(height: 6),
-
-                    Text(
-                      "${p.dailyQuestProgress} / ${p.dailyQuestGoal}",
-                      style: const TextStyle(color: Colors.white54),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 25),
-
-              /// ENCOUNTERS
-              ElevatedButton(
-                onPressed: encounterAvailable
-                    ? () async {
-                  final before = p.level;
-                  final updated = await ProfileService.instance
-                      .completeEncounter();
-
-                  final gained = updated.level - before;
-
-                  setState(() => profile = updated);
-                  _showLevelUpPopup(gained, updated.level);
-
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) =>
-                            EncounterScreen(profile: updated)),
-                  ).then((_) => _loadProfile());
-                }
-                    : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor:
-                  encounterAvailable ? Colors.redAccent : Colors.grey,
-                  minimumSize: const Size(double.infinity, 48),
-                ),
-                child: Text(
-                  encounterAvailable
-                      ? "⚔ Start Encounter"
-                      : "Walk ${p.stepsUntilNextEncounter} more steps",
-                ),
-              ),
-
-              const SizedBox(height: 25),
-
-              /// Guild button placeholder
-              ElevatedButton(
-                onPressed: () {},
-                style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.purpleAccent,
-                    minimumSize: const Size(double.infinity, 48)),
-                child: const Text("Guild"),
-              ),
-            ],
-          ),
-
-          /// LEVEL UP POPUP
-          if (levelUpMessage != null)
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        child: Column(
+          children: [
+            // ---------------- AVATAR ----------------
             Center(
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1E223A),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.yellowAccent, width: 2),
-                ),
-                child: Text(
-                  levelUpMessage!,
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontFamily: "monospace"),
-                ),
+              child: AvatarRenderer(
+                auraColor: Colors.blueAccent,
+                hairstyle: p.hairstyle,
+                hairColorValue: p.hairColorIndex != null
+                    ? Colors.primaries[p.hairColorIndex % Colors.primaries.length].value
+                    : Colors.brown.value,
+                hatType: p.hatType,
+                facialHair: p.facialHair,
               ),
             ),
-        ],
+
+            const SizedBox(height: 10),
+
+            Text(
+              p.displayName ?? "Unnamed Hero",
+              style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+            ),
+
+            const SizedBox(height: 6),
+            Text(
+              "Guild: ${p.guildId ?? "None"}",
+              style: const TextStyle(color: Colors.white70),
+            ),
+
+            const SizedBox(height: 20),
+
+            Text("Level ${p.level}", style: const TextStyle(color: Colors.white, fontSize: 18)),
+            const SizedBox(height: 8),
+            _xpBar(current: p.xp, max: p.xpNeededForNextLevel),
+
+            const SizedBox(height: 20),
+
+            // ---------------- COSMETIC REWARD BUTTON ----------------
+            if (rewardAvailable)
+              GestureDetector(
+                onTap: _openReward,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFB26BFF), Color(0xFF712BCE)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.purpleAccent.withOpacity(0.5),
+                        blurRadius: 20,
+                      )
+                    ],
+                  ),
+                  child: const Center(
+                    child: Text(
+                      "⭐ Cosmetic Reward Available! ⭐",
+                      style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ),
+
+            _bigButton(label: "+500 Steps", color: Colors.greenAccent, onTap: _addSteps),
+            const SizedBox(height: 14),
+
+            if (p.stepsUntilNextEncounter <= 0)
+              _bigButton(label: "Encounter!", color: Colors.orangeAccent, onTap: _doEncounter)
+            else
+              Text(
+                "${p.stepsUntilNextEncounter} steps until next encounter",
+                style: const TextStyle(color: Colors.white70),
+              ),
+
+            const SizedBox(height: 14),
+
+            _dailyQuestSection(p),
+          ],
+        ),
       ),
+    );
+  }
+
+  // ---------------- XP BAR ----------------
+  Widget _xpBar({required int current, required int max}) {
+    final pct = current / max;
+    return Container(
+      height: 16,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white12,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: FractionallySizedBox(
+        alignment: Alignment.centerLeft,
+        widthFactor: pct.clamp(0, 1),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.blueAccent,
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ---------------- BIG BUTTON ----------------
+  Widget _bigButton({required String label, required Color color, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Center(
+          child: Text(label, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        ),
+      ),
+    );
+  }
+
+  // ---------------- DAILY QUEST ----------------
+  Widget _dailyQuestSection(PlayerProfile p) {
+    if (p.dailyQuestCompleted) {
+      return _bigButton(
+        label: "Claim Daily Reward",
+        color: Colors.yellowAccent,
+        onTap: _claimDaily,
+      );
+    }
+
+    return Column(
+      children: [
+        Text(
+          "Daily Quest: ${p.dailyQuestProgress}/${p.dailyQuestGoal} steps",
+          style: const TextStyle(color: Colors.white70),
+        ),
+        const SizedBox(height: 6),
+        _xpBar(current: p.dailyQuestProgress, max: p.dailyQuestGoal),
+      ],
     );
   }
 }

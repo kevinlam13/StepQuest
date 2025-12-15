@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../services/profile_services.dart';
 import 'home_screen.dart';
 import 'create_guild_screen.dart';
@@ -20,13 +19,12 @@ class _GuildSelectionScreenState extends State<GuildSelectionScreen> {
 
     await ProfileService.instance.assignGuild(guildId);
 
-    if (mounted) {
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
-            (_) => false,
-      );
-    }
+    if (!mounted) return;
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const HomeScreen()),
+          (_) => false,
+    );
   }
 
   Widget _guildButton({
@@ -91,19 +89,16 @@ class _GuildSelectionScreenState extends State<GuildSelectionScreen> {
           _guildButton(
             title: "Emberborne Clan",
             emoji: "🔥",
-            onTap: () => _pickGuild("emberborne_clan"),
+            onTap: () => _pickGuild("ember_borne"),
           ),
 
           const SizedBox(height: 40),
 
           GestureDetector(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) => const CreateGuildScreen()),
-              );
-            },
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const CreateGuildScreen()),
+            ),
             child: Container(
               margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 24),
               padding: const EdgeInsets.symmetric(vertical: 16),

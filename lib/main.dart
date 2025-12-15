@@ -24,9 +24,6 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // 🔥 FORCE LOGOUT ON STARTUP (Development only)
-  await FirebaseAuth.instance.signOut();
-
   runApp(const StepQuestApp());
 }
 
@@ -73,6 +70,7 @@ class _RootRouterState extends State<RootRouter> {
 
       _firebaseUser = user;
 
+      // 🔥 If user is NULL → go to Login
       if (user == null) {
         setState(() {
           _profile = null;
@@ -81,9 +79,20 @@ class _RootRouterState extends State<RootRouter> {
         return;
       }
 
-      final profile = await ProfileService.instance.getProfile(user.uid);
+      // 🔥 Load Firestore profile
+      final profile =
+      await ProfileService.instance.getProfile(user.uid);
 
-      if (!mounted) return;
+      // ❗ If profile doesn't exist → invalid cached session → logout
+      if (profile == null) {
+        await FirebaseAuth.instance.signOut();
+        setState(() {
+          _firebaseUser = null;
+          _profile = null;
+          _loading = false;
+        });
+        return;
+      }
 
       setState(() {
         _profile = profile;
@@ -102,28 +111,29 @@ class _RootRouterState extends State<RootRouter> {
   Widget build(BuildContext context) {
     if (_loading) {
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator(color: Colors.white)),
+        backgroundColor: Color(0xFF050814),
+        body: Center(
+          child: CircularProgressIndicator(color: Colors.white),
+        ),
       );
     }
 
-    // --- AUTH LOGIC ---
-
-    // 1. Not logged in → Login screen
+    // 1️⃣ Not logged in → Login Screen
     if (_firebaseUser == null) {
       return const LoginScreen();
     }
 
-    // 2. Logged in but no character profile → Create character
+    // 2️⃣ Logged in but no character → Character Creation
     if (_profile == null || !_profile!.hasCharacterData()) {
       return const CharacterCreationScreen();
     }
 
-    // 3. Character exists but no guild yet → Guild selection
+    // 3️⃣ Character exists but no guild → Guild Selection
     if (_profile!.guildId == null || _profile!.guildId!.isEmpty) {
       return const GuildSelectionScreen();
     }
 
-    // 4. Everything exists → Enter the world
+    // 4️⃣ Fully onboarded → Home
     return const HomeScreen();
   }
 }

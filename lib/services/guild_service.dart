@@ -7,57 +7,58 @@ class GuildService {
 
   final _db = FirebaseFirestore.instance;
 
-  /// Create a new guild
-  Future<void> createGuild({
-    required String guildId,
-    required String displayName,
-    required dynamic color,
-  }) async {
-    final ref = _db.collection("guilds").doc(guildId);
-
-    final exists = await ref.get();
-    if (exists.exists) {
-      throw Exception("Guild name already taken.");
-    }
-
-    await ref.set({
-      "name": displayName,
-      "color": color.toString(),
-      "weeklySteps": 0,
-      "members": [],
-      "createdAt": FieldValue.serverTimestamp(),
-    });
-  }
-
-  /// Add user to guild
+  /// Join a guild, auto-create if missing
   Future<void> joinGuild(String guildId) async {
     final uid = FirebaseAuth.instance.currentUser!.uid;
+    final ref = _db.collection("guilds").doc(guildId);
 
-    await _db.collection("guilds").doc(guildId).update({
-      "members": FieldValue.arrayUnion([uid]),
+    final doc = await ref.get();
+
+    if (!doc.exists) {
+      // Create the guild document first
+      await ref.set({
+        "name": guildId,
+        "members": [uid],
+        "level": 1,
+        "xp": 0,
+        "totalSteps": 0,
+      });
+      return;
+    }
+
+    // If guild exists, update normally
+    await ref.update({
+      "members": FieldValue.arrayUnion([uid])
     });
   }
 
-  /// Update guild steps (called when user gains steps)
-  Future<void> addGuildSteps(String guildId, int amount) async {
-    await _db.collection("guilds").doc(guildId).update({
-      "weeklySteps": FieldValue.increment(amount),
+  /// Add XP/Steps to the guild
+  Future<void> addGuildSteps(String guildId, int steps) async {
+    final ref = _db.collection("guilds").doc(guildId);
+
+    final doc = await ref.get();
+    if (!doc.exists) return;
+
+    final data = doc.data()!;
+    int xp = data["xp"] ?? 0;
+    int level = data["level"] ?? 1;
+    int totalSteps = data["totalSteps"] ?? 0;
+
+    xp += steps ~/ 20; // example guild XP formula
+    totalSteps += steps;
+
+    // Level up
+    int needed = 200 * level;
+    while (xp >= needed) {
+      xp -= needed;
+      level++;
+      needed = 200 * level;
+    }
+
+    await ref.update({
+      "xp": xp,
+      "level": level,
+      "totalSteps": totalSteps,
     });
-  }
-
-  /// Leaderboard ranking
-  Future<List<Map<String, dynamic>>> getGuildLeaderboard() async {
-    final snapshot = await _db
-        .collection("guilds")
-        .orderBy("weeklySteps", descending: true)
-        .get();
-
-    return snapshot.docs.map((d) {
-      return {
-        "id": d.id,
-        "name": d["name"],
-        "steps": d["weeklySteps"],
-      };
-    }).toList();
   }
 }

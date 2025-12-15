@@ -1,266 +1,177 @@
 import 'package:flutter/material.dart';
 
 class AvatarRenderer extends StatelessWidget {
-  final int bodyColor;
-  final int eyeStyle;  // 0–6
-  final int hairStyle; // 0–6
-  final int hatStyle;  // -1 = none
+  final Color auraColor;
+  final String? hairstyle;
+  final int? hairColorValue;
+  final String? hatType;
+  final String? facialHair;
 
   const AvatarRenderer({
     super.key,
-    required this.bodyColor,
-    required this.eyeStyle,
-    required this.hairStyle,
-    required this.hatStyle,
+    required this.auraColor,
+    required this.hairstyle,
+    required this.hairColorValue,
+    required this.hatType,
+    required this.facialHair,
   });
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 120,
-      height: 120,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          _buildBody(),
-          _buildEyes(),
-          _buildHair(),
-          if (hatStyle >= 0) _buildHat(),
-        ],
+    return CustomPaint(
+      size: const Size(140, 140),
+      painter: _AvatarPainter(
+        auraColor: auraColor,
+        hairstyle: hairstyle,
+        hairColorValue: hairColorValue,
+        hatType: hatType,
+        facialHair: facialHair,
       ),
     );
   }
+}
 
-  // =====================================================
-  // BODY (simple pixel circle/square hybrid)
-  // =====================================================
-  Widget _buildBody() {
-    return Positioned(
-      left: 20,
-      top: 20,
-      child: Container(
-        width: 80,
-        height: 90,
-        decoration: BoxDecoration(
-          color: Color(bodyColor),
-          borderRadius: BorderRadius.circular(6), // pixel-ish
-        ),
+class _AvatarPainter extends CustomPainter {
+  final Color auraColor;
+  final String? hairstyle;
+  final int? hairColorValue;
+  final String? hatType;
+  final String? facialHair;
+
+  _AvatarPainter({
+    required this.auraColor,
+    required this.hairstyle,
+    required this.hairColorValue,
+    required this.hatType,
+    required this.facialHair,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    const headRadius = 35.0;
+
+    // Aura glow
+    canvas.drawCircle(
+        center,
+        headRadius + 20,
+        Paint()
+          ..color = auraColor.withOpacity(0.3)
+          ..style = PaintingStyle.fill);
+
+    // Head
+    canvas.drawCircle(
+        center,
+        headRadius,
+        Paint()
+          ..color = const Color(0xFFF6D7B0)
+          ..style = PaintingStyle.fill);
+
+    // Hair
+    if (hairstyle != null && hairstyle != "none") {
+      final hairPaint = Paint()
+        ..color = Color(hairColorValue ?? Colors.brown.value)
+        ..style = PaintingStyle.fill;
+
+      switch (hairstyle) {
+        case "H1":
+          _drawShortHair(canvas, center, headRadius, hairPaint);
+          break;
+        case "H2":
+          _drawSpikyHair(canvas, center, headRadius, hairPaint);
+          break;
+      }
+    }
+
+    // Eyes
+    final eyePaint = Paint()..color = Colors.black;
+    canvas.drawCircle(center + const Offset(-12, -5), 4, eyePaint);
+    canvas.drawCircle(center + const Offset(12, -5), 4, eyePaint);
+
+    // Mouth
+    final mouth = Rect.fromCenter(center: center + const Offset(0, 12), width: 30, height: 20);
+    canvas.drawArc(mouth, 0, 3.14, false, Paint()
+      ..color = Colors.black
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3);
+
+    // Facial hair
+    if (facialHair == "F1") {
+      final beard = Rect.fromCenter(center: center + const Offset(0, 32), width: 22, height: 12);
+      canvas.drawOval(beard, Paint()..color = Colors.brown.shade800);
+    }
+
+    // Hats
+    if (hatType == "HT1") _drawWizardHat(canvas, center, headRadius);
+    if (hatType == "HT2") _drawBaseballCap(canvas, center, headRadius);
+  }
+
+  // Drawing helpers for hair + hats...
+  void _drawShortHair(Canvas canvas, Offset center, double r, Paint paint) {
+    final path = Path();
+
+    // Smooth curved hairline above the head
+    path.moveTo(center.dx - r * 0.9, center.dy - r * 0.2);
+    path.quadraticBezierTo(
+        center.dx, center.dy - r * 0.9, center.dx + r * 0.9, center.dy - r * 0.2);
+
+    path.lineTo(center.dx + r * 0.9, center.dy - r * 0.7);
+    path.quadraticBezierTo(
+        center.dx, center.dy - r * 1.2, center.dx - r * 0.9, center.dy - r * 0.7);
+
+    path.close();
+    canvas.drawPath(path, paint);
+  }
+
+
+  void _drawSpikyHair(Canvas canvas, Offset center, double r, Paint paint) {
+    final path = Path();
+
+    path.moveTo(center.dx - r * 1, center.dy - r * 0.2);
+
+    // 3 main spikes
+    path.lineTo(center.dx - r * 0.5, center.dy - r * 1.8);
+    path.lineTo(center.dx, center.dy - r * 0.8);
+    path.lineTo(center.dx + r * 0.6, center.dy - r * 1.8);
+
+    path.lineTo(center.dx + r * 1, center.dy - r * 0.2);
+
+    // Close lower part
+    path.close();
+
+    canvas.drawPath(path, paint);
+  }
+
+  void _drawWizardHat(Canvas canvas, Offset center, double r) {
+    final paint = Paint()..color = Colors.deepPurple;
+
+    final path = Path();
+    path.moveTo(center.dx - r * 0.8, center.dy - r * 1.1);
+    path.lineTo(center.dx, center.dy - r * 2.0);
+    path.lineTo(center.dx + r * 0.8, center.dy - r * 1.1);
+    path.close();
+
+    canvas.drawPath(path, paint);
+
+    // brim
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: center + Offset(0, -r * 1.05),
+        width: r * 1.8,
+        height: r * 0.25,
       ),
+      paint,
     );
   }
 
-  // =====================================================
-  // EYES (7 styles)
-  // =====================================================
-  Widget _buildEyes() {
-    final eyeWidgets = [
-      _eyeDot(),          // 0: cute dots
-      _eyeWide(),         // 1: big wide
-      _eyeAngry(),        // 2: angry
-      _eyeHappy(),        // 3: happy ^ ^
-      _eyeSleepy(),       // 4: sleepy - -
-      _eyeSparkle(),      // 5: sparkle ✨
-      _eyePixel(),        // 6: retro pixel squares
-    ];
-
-    return Positioned(
-      top: 50,
-      left: 32,
-      child: eyeWidgets[eyeStyle.clamp(0, 6)],
-    );
+  void _drawBaseballCap(Canvas canvas, Offset c, double r) {
+    final paint = Paint()..color = Colors.red;
+    final top = Rect.fromCenter(
+        center: c + Offset(0, -r / 1.2), width: r * 1.6, height: r * 0.8);
+    canvas.drawOval(top, paint);
+    canvas.drawRect(Rect.fromLTWH(c.dx - r, c.dy - r / 1.2, r * 1.2, 10), paint);
   }
 
-  Widget _eyeDot() {
-    return Row(
-      children: [
-        _pixel(10, 10),
-        SizedBox(width: 18),
-        _pixel(10, 10),
-      ],
-    );
-  }
-
-  Widget _eyeWide() {
-    return Row(
-      children: [
-        _pixel(14, 10),
-        SizedBox(width: 12),
-        _pixel(14, 10),
-      ],
-    );
-  }
-
-  Widget _eyeAngry() {
-    return Row(
-      children: [
-        Transform.rotate(
-          angle: -0.3,
-          child: _pixel(12, 8),
-        ),
-        SizedBox(width: 16),
-        Transform.rotate(
-          angle: 0.3,
-          child: _pixel(12, 8),
-        ),
-      ],
-    );
-  }
-
-  Widget _eyeHappy() {
-    return Row(
-      children: [
-        Container(width: 14, height: 6, color: Colors.black),
-        SizedBox(width: 12),
-        Container(width: 14, height: 6, color: Colors.black),
-      ],
-    );
-  }
-
-  Widget _eyeSleepy() {
-    return Row(
-      children: [
-        Container(width: 14, height: 4, color: Colors.black),
-        SizedBox(width: 12),
-        Container(width: 14, height: 4, color: Colors.black),
-      ],
-    );
-  }
-
-  Widget _eyeSparkle() {
-    return Row(
-      children: [
-        _pixel(8, 8, color: Colors.white),
-        SizedBox(width: 18),
-        _pixel(8, 8, color: Colors.white),
-      ],
-    );
-  }
-
-  Widget _eyePixel() {
-    return Row(
-      children: [
-        _pixel(12, 12),
-        SizedBox(width: 12),
-        _pixel(12, 12),
-      ],
-    );
-  }
-
-  // =====================================================
-  // HAIR (7 styles)
-  // =====================================================
-  Widget _buildHair() {
-    final hairWidgets = [
-      _hairShort(),
-      _hairLong(),
-      _hairSpiky(),
-      _hairCurly(),
-      _hairSide(),
-      _hairMessy(),
-      _hairMohawk(),
-    ];
-
-    return Positioned(
-      top: 5,
-      left: 20,
-      child: hairWidgets[hairStyle.clamp(0, 6)],
-    );
-  }
-
-  Widget _hairShort() {
-    return _pixel(80, 25, color: Colors.brown);
-  }
-
-  Widget _hairLong() {
-    return Column(
-      children: [
-        _pixel(80, 25, color: Colors.brown),
-        _pixel(60, 20, color: Colors.brown),
-      ],
-    );
-  }
-
-  Widget _hairSpiky() {
-    return Column(
-      children: [
-        _pixel(80, 18, color: Colors.brown),
-        Row(
-          children: [
-            _pixel(20, 18),
-            SizedBox(width: 4),
-            _pixel(20, 18),
-            SizedBox(width: 4),
-            _pixel(20, 18),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _hairCurly() {
-    return Row(
-      children: [
-        _pixel(25, 25, color: Colors.brown),
-        SizedBox(width: 4),
-        _pixel(25, 25, color: Colors.brown),
-      ],
-    );
-  }
-
-  Widget _hairSide() {
-    return Row(
-      children: [
-        _pixel(50, 25, color: Colors.brown),
-        _pixel(20, 20, color: Colors.brown),
-      ],
-    );
-  }
-
-  Widget _hairMessy() {
-    return Row(
-      children: [
-        _pixel(20, 25),
-        SizedBox(width: 8),
-        _pixel(30, 25),
-      ],
-    );
-  }
-
-  Widget _hairMohawk() {
-    return Row(
-      children: [
-        _pixel(12, 25),
-        SizedBox(width: 4),
-        _pixel(12, 25),
-        SizedBox(width: 4),
-        _pixel(12, 25),
-        SizedBox(width: 4),
-        _pixel(12, 25),
-      ],
-    );
-  }
-
-  // =====================================================
-  // HAT (cosmetic rewards)
-  // =====================================================
-  Widget _buildHat() {
-    final hatWidgets = [
-      _pixel(60, 15, color: Colors.red),        // 0: red band
-      _pixel(70, 20, color: Colors.yellow),     // 1: wizard band
-      _pixel(75, 25, color: Colors.purple),     // 2: top bar
-    ];
-
-    return Positioned(
-      top: -5,
-      left: 20,
-      child: hatWidgets[hatStyle.clamp(0, 2)],
-    );
-  }
-
-  // =====================================================
-  // Helper pixel
-  // =====================================================
-  Widget _pixel(double w, double h, {Color color = Colors.black}) {
-    return Container(width: w, height: h, color: color);
-  }
+  @override
+  bool shouldRepaint(_) => true;
 }
